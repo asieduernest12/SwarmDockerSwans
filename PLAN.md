@@ -9,37 +9,42 @@ This document tracks the setup and status of the distributed Docker Compose lear
 
 | Step | Description | Status |
 |------|-------------|--------|
-| 1 | Scaffold base Compose files for all nodes | ✅ |
-| 2 | Split Compose files by node (proxy, redis, services) | ✅ |
-| 3 | Mount each Compose file into its node container at `/app/node-x/docker-compose.yml` | ✅ |
-| 4 | Create dummy Dockerfile for node containers | ✅ |
-| 5 | Start all node containers using `nodes-compose.yml` | ⏳ |
-| 6 | Inside each node container, run `docker compose -f /app/node-x/docker-compose.yml up -d` | ⏳ |
-| 7 | Configure Caddy with custom host labels for Express apps | ⏳ |
-| 8 | Exec into a container on one node and ping another node using the custom host (Caddy-proxied) | ⏳ |
-| 9 | Verify inter-node connectivity and service discovery | ⏳ |
-| 10 | Document and clean up | ⏳ |
+| 1 | Start DIND cluster manager | ✅ |
+| 2 | Initialize Swarm manager via `post_start` hook | ✅ |
+| 3 | Launch and healthcheck worker nodes A, B, C | ✅ |
+| 4 | Join workers to the Swarm cluster | ✅ |
+| 5 | Create overlay network `swarm-net` | ✅ |
+| 6 | Deploy services with placement constraints per node | ✅ |
+| 7 | Add Docker Registry UI services | ✅ |
+| 8 | Configure Caddy Docker proxy for routing | ✅ |
+| 9 | Test inter-node connectivity & service discovery | ✅ |
+| 10 | Final documentation & cleanup | ✅ |
 
 ---
 
 ## Example: Caddy Docker Proxy Label
 
-Add a label to your Express app service in `services-node-c-compose.yml`:
+Add labels to your Express app services for Caddy routing:
 ```yaml
+# app service
 labels:
-  - caddy=cat1.localhost
+  - 'caddy=app.localhost:80'
   - caddy.reverse_proxy={{upstreams 3001}}
-```
 
-This will expose the app at `http://cat1.localhost` via Caddy.
+# app2 service
+labels:
+  - 'caddy=app2.localhost:80'
+  - caddy.reverse_proxy={{upstreams 3002}}
+```
+This exposes the services at `http://app.localhost` and `http://app2.localhost` via Caddy.
 
 ---
 
 ## Final Test
-- [ ] Start all nodes
-- [ ] Exec into one node's container (e.g., `services-node-c`)
-- [ ] Ping another node's service using the custom host (e.g., `ping cat1.localhost` or `curl http://cat1.localhost`)
-- [ ] Confirm successful response
+- [x] Start all nodes
+- [x] Exec into one node's container (e.g., `services-node-c`)
+- [x] curl http://app.localhost and curl http://app2.localhost from different nodes
+- [x] Confirm successful responses
 
 ---
 

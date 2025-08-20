@@ -20,6 +20,44 @@ This project demonstrates how to use Docker Compose with Docker-in-Docker (dind)
               -- Express App 2 (container)
 ```
 
+## Architecture Diagrams
+
+1) Swarm Host View: Top-level DIND container runs the Swarm host orchestration (in `/docker-compose.yml`)
+
+```
+           +-----------------------------------------------+
+           |          swarm-host (DIND Container)          |
+           |      manages the cluster via docker-compose   |
+           |                  `/docker-compose.yml`        |
+           +---------------------------+-------------------+
+                                   |
+   ----------------------------------------------------------------------
+   |                   |                       |                     |
++-------------+   +-----------------+   +-----------------+   +----------------+
+|  registry   |   |      node-a     |   |      node-b     |   |     node-c     |
+| (registry:2)|   |    (manager)    |   |     (worker)    |   |    (worker)    |
++-------------+   +-----------------+   +-----------------+   +----------------+
+```
+
+2) Node-Level View: Services scoped to each node on the `swarm-net` overlay network
+
+```
+         +-------------------+       +-------------------+       +-------------------+
+         |      node-a       |       |      node-b       |       |      node-c       |
+         |     (manager)     |       |     (worker)      |       |     (worker)      |
+         +---------+---------+       +---------+---------+       +---------+---------+
+                   |                         |                         |
+    +--------------------------------+  +--------------------------------+  +--------------------------------+
+    |           services            |  |          services             |  |          services             |
+    |         - caddy               |  | - redis                       |  | - app2                        |
+    |                                |  | - app                         |  |                                |
+    +--------------------------------+  +--------------------------------+  +--------------------------------+
+                    \                             \                             \
+                     +---------------------------------------------------------+
+                     |                         swarm-net                       |
+                     +---------------------------------------------------------+
+```
+
 ## Prerequisites
 - Docker and Docker Compose installed on your machine
 - Linux recommended (for overlay networking)
