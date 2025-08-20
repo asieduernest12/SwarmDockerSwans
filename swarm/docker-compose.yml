@@ -1,0 +1,123 @@
+services:
+  node-a:
+    image: docker:28.3.3-dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    volumes:
+      - ../docker-daemon.json:/etc/docker/daemon.json
+      - ../src:/app
+      - ../alias.sh:/etc/profile.d/aliases.sh
+    command:
+      - --host=tcp://0.0.0.0:2375
+      - --host=unix:///var/run/docker.sock
+      - --tls=false
+    networks:
+      - swarm-net
+    ports:
+      - 80:80
+      - 443:443
+      - 443:443/udp
+      - '127.0.0.1:2376:2375'
+      - '127.0.0.1:2377:2377' # Swarm communication port
+    hostname: node-a
+    tty: true
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  node-b:
+    image: docker:28.3.3-dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    volumes:
+      - ../docker-daemon.json:/etc/docker/daemon.json
+    command:
+      - --host=tcp://0.0.0.0:2375
+      - --host=unix:///var/run/docker.sock
+      - --tls=false
+    networks:
+      - swarm-net
+    ports:
+      - '127.0.0.1:2378:2375'
+      - '127.0.0.1:2379:2377' # Swarm communication port
+    hostname: node-b
+    tty: true
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  node-c:
+    image: docker:28.3.3-dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    volumes:
+      - ../docker-daemon.json:/etc/docker/daemon.json
+    command:
+      - --host=tcp://0.0.0.0:2375
+      - --host=unix:///var/run/docker.sock
+      - --tls=false
+    networks:
+      - swarm-net
+    ports:
+      - '127.0.0.1:2380:2375'
+      - '127.0.0.1:2381:2377' # Swarm communication port
+    hostname: node-c
+    # scale: 2
+    tty: true
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  registry:
+    image: registry:2
+    restart: always
+    # ports:
+    #   - "5000:5000"
+    networks:
+      - swarm-net
+    volumes:
+      - registry-data:/var/lib/registry
+
+  swarm-sidecar:
+    image: docker:28.3.3-cli
+    container_name: swarm-sidecar
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./swarm-init.sh:/swarm-init.sh:ro
+      - ./docker-stack.yml:/docker-stack.yml:ro
+      - ../docker-daemon.json:/etc/docker/daemon.json
+      - ./src:/app/
+    networks:
+      - swarm-net
+    command: ["sh", "/swarm-init.sh"]
+    tty: true
+    depends_on:
+      node-a:
+        condition: service_healthy
+      node-b:
+        condition: service_healthy
+      node-c:
+        condition: service_healthy
+    
+
+networks:
+  swarm-net:
+    driver: bridge
+
+volumes:
+  registry-data:

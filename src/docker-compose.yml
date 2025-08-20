@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: serfriz/caddy-crowdsec-geoip-ratelimit-security-dockerproxy:2.10
+    networks:
+      - overlay-net
+    environment:
+      - CADDY_DOCKER_CADDYFILE_PATH=/etc/caddy/Caddyfile
+      - CADDY_DOCKER_EVENT_THROTTLE_INTERVAL=2s
+      # - CADDY_INGRESS_NETWORKS=overlay-net
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy_data:/data # Persist Caddy data (certificates, etc.)
+      - caddy_config:/config # Persist Caddy configuration
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      labels:
+        # caddy.0_debug: ''
+        caddy.1_metrics.per_host: ''
+        caddy.2_log: ''
+        caddy.2_log.format: 'json'
+        caddy.2_log.output: 'stdout'
+        caddy_3: (c_caddy_waf)
+        caddy_3.@nothing: |
+          '# nothing here'
+      placement:
+        constraints: [node.role == manager]
+    labels:
+      # caddy.0_debug: ''
+      caddy.1_metrics.per_host: ''
+      caddy.2_log: ''
+      caddy.2_log.format: 'json'
+      caddy.2_log.output: 'stdout'
+      caddy_3: (c_caddy_waf)
+      caddy_3.@nothing: |
+        '# nothing here'
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - overlay-net
+    deploy:
+      placement:
+        constraints: [node.labels.type == node-b]
+    labels:
+      - 'com.docker.compose.project=node-b'
+
+  app:
+    build:
+      context: ./express-app
+      dockerfile: Dockerfile
+    image: registry:5000/exp-app1
+    environment:
+      - REDIS_HOST=redis
+      - PORT=3001
+    networks:
+      - overlay-net
+    deploy:
+      replicas: 5
+      placement:
+        constraints: [node.labels.role == app]
+      labels:
+        - 'com.docker.compose.project=node-c'
+        - caddy=app.localhost:80
+        - caddy.reverse_proxy={{upstreams 3001}}
+
+  app2:
+    # build:
+    #   context: ./express-app
+    #   dockerfile: Dockerfile
+    image: registry:5000/exp-app1
+    environment:
+      - REDIS_HOST=redis
+      - PORT=3002
+    networks:
+      - overlay-net
+    deploy:
+      replicas: 2
+      placement:
+        constraints: [node.labels.type == node-c]
+      labels:
+        - "com.docker.compose.project=node-c"
+        - caddy=app2.localhost:80
+        - caddy.reverse_proxy={{upstreams 3002}}
+
+  regui:
+    image: joxit/docker-registry-ui:latest
+    environment:
+      - REGISTRY_URL=http://registry:5000
+    networks:
+      - overlay-net
+    deploy:
+      placement:
+        constraints: [node.labels.type == node-c]
+      labels:
+        - caddy=regui.localhost
+        - caddy.reverse_proxy={{upstreams 80}}
+
+  regui-a5:
+    image: a5huynh/docker-registry-frontend:latest
+    environment:
+      - DOCKER_REGISTRY=http://registry:5000
+    networks:
+      - overlay-net
+    deploy:
+      labels:
+        - caddy=regui-a5.localhost
+        - caddy.reverse_proxy={{upstreams 80}}
+
+  regui-smax:
+    image: smax/docker-registry-ui:latest
+    environment:
+      - REGISTRY_URL=http://registry:5000
+    networks:
+      - overlay-net
+    deploy:
+      labels:
+        - caddy=regui-smax.localhost
+        - caddy.reverse_proxy={{upstreams 80}}
+
+  regui-jsmart:
+    image: jsmart/docker-registry-ui:latest
+    environment:
+      - REGISTRY_URL=http://registry:5000
+    networks:
+      - overlay-net
+    deploy:
+      labels:
+        - caddy=regui-jsmart.localhost
+        - caddy.reverse_proxy={{upstreams 80}}
+
+  regui-jc21:
+    image: jc21/registry-ui:develop
+    environment:
+      - REGISTRY_URL=http://registry:5000
+    networks:
+      - overlay-net
+    deploy:
+      labels:
+        - caddy=regui-jc21.localhost
+        - caddy.reverse_proxy={{upstreams 80}}
+
+networks:
+  overlay-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  caddy_data:
+  caddy_config:

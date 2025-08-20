@@ -1,0 +1,76 @@
+services:
+  cluster:
+    image: docker:28.3.3-dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    command:
+      - --host=tcp://0.0.0.0:2375
+      - --host=unix:///var/run/docker.sock
+      - --tls=false
+    network_mode: host
+    # networks:
+    #   - dind-net
+    ports:
+      - "2375:2375" # Expose Docker API for control
+      - 80:80
+      - 443:443
+      - 443:443/udp
+    hostname: cluster
+    tty: true
+    volumes:
+      - cluster:/var/lib/docker
+      - ./alias.sh:/etc/profile.d/alias.sh
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+    post_start:
+      - command: |
+            sh -lc '
+            # wait for Docker daemon socket
+            until docker info >/dev/null 2>&1; do sleep 2; done
+            (
+              cd /app/swarm && docker compose up -d --remove-orphans 
+            ) >> /proc/1/fd/1 2>&1 || true;
+
+            (
+          
+            cd /app/swarm ;docker compose exec -T node-a sh -c "cd /app; sleep 5; docker compose build --push; docker stack deploy -c docker-compose.yml cs"
+            ) >> /proc/1/fd/1 2>&1
+            '
+
+  # sidecar:
+  #   image: docker:28.3.3-cli
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./swarm-init.sh:/swarm-init.sh:ro
+  #     - ../docker-daemon.json:/etc/docker/daemon.json
+  #     - ./:/app/
+   
+  #   depends_on:
+  #     cluster:
+  #         condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "docker", "info"]
+  #     interval: 5s
+  #     timeout: 2s
+  #     retries: 10
+  #     start_period: 5s
+  #   command: |
+  #     sh -cl '
+  #       cd /app/swarm
+  #       docker ps
+  #       docker compose up -d
+        # '
+
+networks:
+  dind-net:
+    driver: bridge
+
+volumes:
+  cluster:
+  dsock:
