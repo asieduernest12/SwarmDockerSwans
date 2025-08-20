@@ -1,0 +1,42 @@
+---
+- name: Swarm Node Orchestration
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Ensure fnm is installed
+      shell: |
+        if ! command -v fnm >/dev/null; then
+          curl -fsSL https://fnm.vercel.app/install | bash
+        fi
+      args:
+        creates: "{{ ansible_env.HOME }}/.fnm/bin/fnm"
+
+    - name: List Node.js versions via fnm
+      shell: fnm list
+      register: node_versions
+
+    - name: Downgrade Node.js to 14
+      shell: fnm use 14
+
+    - name: Upgrade Node.js to 18
+      shell: fnm use 18
+
+    - name: Ensure curl is installed
+      package:
+        name: curl
+        state: present
+
+    - name: Run curl version
+      shell: curl --version
+      register: curl_output
+
+    - name: Report hostname
+      shell: hostname
+      register: host_output
+
+    - name: Display results
+      debug:
+        msg:
+          - "Node.js versions: {{ node_versions.stdout }}"
+          - "Curl version: {{ curl_output.stdout }}"
+          - "Hostname: {{ host_output.stdout }}"
