@@ -144,6 +144,19 @@ services:
         - caddy=regui-jc21.localhost
         - caddy.reverse_proxy={{upstreams 80}}
 
+  spartan:
+    build:
+      context: ./spartan
+    image: registry:5000/spartan:latest
+    networks:
+      - overlay-net
+    deploy:
+      labels:
+        - caddy=spartan.localhost:4173
+        - caddy.reverse_proxy={{upstreams 4200}}
+    ports:
+      - "4200:4200"
+
 networks:
   overlay-net:
     driver: overlay
