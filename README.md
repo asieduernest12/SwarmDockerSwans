@@ -5,21 +5,6 @@ This project demonstrates how to use Docker Compose with Docker-in-Docker (dind)
 - **Node A**: Runs a Redis instance.
 - **Node B**: Runs two simple Express.js applications ("Cat Service 1" and "Cat Service 2") that connect to Redis to display and like cat profiles.
 
-## Architecture
-
-```
-[Node A: dind] -- Redis (container)
-   |  \
-   |   \
-   |    \
-[Overlay Network]
-   |    /
-   |   /
-[Node B: dind] -- Express App 1 (container)
-             \
-              -- Express App 2 (container)
-```
-
 ## Architecture Diagrams
 
 1) Swarm Host View: Top-level DIND container runs the Swarm host orchestration (in `/docker-compose.yml`)
